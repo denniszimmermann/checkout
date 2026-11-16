@@ -24,6 +24,13 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Für Händlerlogo und Grundriss greift die App auf deine Fotos zu.",
+          "cameraPermission": "Zum Fotografieren des Grundrisses nutzt die App die Kamera."
+        }
       ]
     ],
     "experiments": {

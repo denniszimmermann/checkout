@@ -1,8 +1,17 @@
 # Kassenzonen-Planer
 
-App für iPhone und iPad zur Planung von Kassenzonen: Aufmaß eintragen, Vorlage an die
-gemessene Länge anpassen lassen, Warengruppen je Boden über Auswahlmenüs festlegen,
-Ergebnis als maßstäbliche Zeichnung und PDF weitergeben. Alle Daten bleiben auf dem Gerät.
+App für iPhone und iPad, die aus dem Aufmaß einer Kassenzone einen
+**„Kassenzone Platzierungsvorschlag“ als Foliensatz** erzeugt, im Aufbau der bisherigen
+PowerPoint-Vorlage: Titel, Stammdaten, Grundriss mit Kassennummern, Fakten, je Kasse die
+Laufbandseiten mit Regal und farbigen Böden, Gondelköpfe und Platzierungsübersicht.
+
+- **Stammdaten**: Formular wie die Stammdatenfolie, Händlerlogo je Projekt.
+- **Grundriss**: Bild wählen oder fotografieren, Kassennummern und Laufrichtung antippen.
+- **Kassen**: Kassentyp, Maße, je Folie Regalbreite/-höhe und die Böden;
+  Warengruppe und Tiefe je Boden über Auswahlmenüs. Die Folie wird live angezeigt.
+- **Folien**: Vorschau aller Folien, Ausgabe als bearbeitbare PowerPoint-Datei und als PDF.
+
+Alle Daten bleiben auf dem Gerät. SCO-Folien und die Kosten-Folie sind noch nicht enthalten.
 
 ## Auf dem iPhone/iPad ausprobieren
 
@@ -29,8 +38,15 @@ npm test
 npm run typecheck
 ```
 
-- `src/domain/` – Datenmodell und Anpassungslogik (`fit.ts`, mit Tests)
-- `src/data/stammdaten.ts` – Warengruppen, Modulkatalog und Vorlagen (**derzeit Beispieldaten**)
-- `src/drawing/` – Front- und Draufsicht (für App und PDF aus derselben Formenliste)
-- `src/pdf/` – PDF-Dokument
+```bash
+npm run lint
+```
+
+- `src/domain/` – Datenmodell, Standard-Warengruppen und -Tiefen
+- `src/slides/build.ts` – baut jede Folie als Liste einfacher Elemente (cm-Koordinaten)
+- `src/slides/FolienAnsicht.tsx`, `toPptx.ts`, `toSvg.ts` – dieselbe Folie als Vorschau, PowerPoint, PDF
+- `src/slides/assets.gen.ts` – Grafiken aus der PowerPoint-Vorlage (erzeugt, nicht von Hand ändern)
 - `src/screens/`, `src/app/` – Bildschirme
+- `scripts/vorlage-*.py` – erzeugen `assets.gen.ts` aus der Vorlage (benötigt LibreOffice, Poppler,
+  python-pptx, Pillow, numpy): erst die Vorlage mit `vorlage-strip.py` einmal auf weißem und einmal
+  auf schwarzem Hintergrund freistellen und rendern, dann `vorlage-assets.py` ausführen

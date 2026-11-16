@@ -19,12 +19,12 @@ export function Titel({ children }: { children: ReactNode }) {
 }
 
 type KnopfProps = {
-  text: string; onPress: () => void; art?: 'voll' | 'leicht' | 'rot'; klein?: boolean; style?: ViewStyle;
+  text: string; onPress: () => void; art?: 'voll' | 'leicht' | 'rot'; klein?: boolean; style?: ViewStyle; a11y?: string;
 };
-export function Knopf({ text, onPress, art = 'voll', klein, style }: KnopfProps) {
+export function Knopf({ text, onPress, art = 'voll', klein, style, a11y }: KnopfProps) {
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole="button" accessibilityLabel={a11y}
       onPress={onPress}
       style={({ pressed }) => [
         s.knopf, klein && s.knopfKlein,
@@ -70,17 +70,15 @@ export function TextFeld(p: { label: string; value: string; onChange: (v: string
 /** Maßeingabe in cm, akzeptiert Komma und Punkt */
 export function ZahlFeld(p: { label: string; value: number; onChange: (v: number) => void; einheit?: string }) {
   const [text, setText] = useState(p.value ? cm(p.value) : '');
-  useEffect(() => {
-    const aktuell = parseFloat(text.replace(',', '.')) || 0;
-    if (Math.abs(aktuell - p.value) > 1e-6) setText(p.value ? cm(p.value) : '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.value]);
+  // Weicht der gespeicherte Wert von der Eingabe ab (z. B. nach Zurücksetzen), gilt der gespeicherte.
+  const aktuell = parseFloat(text.replace(',', '.')) || 0;
+  const anzeige = Math.abs(aktuell - p.value) > 1e-6 ? (p.value ? cm(p.value) : '') : text;
   return (
     <View style={{ flex: 1, minWidth: 96 }}>
       <Text style={s.label}>{p.label}</Text>
       <View style={s.zahlZeile}>
         <TextInput
-          accessibilityLabel={p.label} value={text} keyboardType="decimal-pad" selectTextOnFocus
+          accessibilityLabel={p.label} value={anzeige} keyboardType="decimal-pad" selectTextOnFocus
           placeholder="0" placeholderTextColor="#A9B4BF"
           onChangeText={(t) => {
             const sauber = t.replace(/[^0-9.,]/g, '');
@@ -131,11 +129,11 @@ export function Auswahl(p: {
 }
 
 /** Feld, das ein Auswahlmenü öffnet */
-export function AuswahlFeld(p: { label: string; wert: string; farbe?: string; onPress: () => void; style?: ViewStyle }) {
+export function AuswahlFeld(p: { label: string; wert: string; farbe?: string; onPress: () => void; style?: ViewStyle; kompakt?: boolean; a11y?: string }) {
   return (
-    <View style={[{ flex: 1, minWidth: 140 }, p.style]}>
-      <Text style={s.label}>{p.label}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${p.label}: ${p.wert}`} onPress={p.onPress} style={[s.eingabe, s.auswahlFeld]}>
+    <View style={[{ flex: 1, minWidth: p.kompakt ? 0 : 140 }, p.style]}>
+      {p.kompakt ? null : <Text style={s.label}>{p.label}</Text>}
+      <Pressable accessibilityRole="button" accessibilityLabel={`${p.a11y ?? p.label}: ${p.wert}`} onPress={p.onPress} style={[s.eingabe, s.auswahlFeld]}>
         {p.farbe ? <View style={[s.chip, { backgroundColor: p.farbe }]} /> : null}
         <Text style={{ flex: 1, fontSize: 16, color: F.tinte }} numberOfLines={1}>{p.wert}</Text>
         <Text style={{ color: F.grau }}>▾</Text>

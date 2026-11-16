@@ -2,103 +2,88 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { MODULTYPEN, VORLAGEN, WARENGRUPPEN } from '@/data/stammdaten';
-import { anordnen, fitTemplate } from '@/domain/fit';
-import {
-  Kassenplatz, ModulTyp, Projekt, Stellflaeche, Stoerstelle, Warengruppe, uid,
-} from '@/domain/types';
+import { TIEFEN, WARENGRUPPEN, neuesProjekt } from '@/domain/standard';
+import { Bild, Bilder, Kasse, Platzierung, Projekt, Warengruppe, uid } from '@/domain/types';
 
 type State = {
   projekte: Projekt[];
   warengruppen: Warengruppe[];
-  modulTypen: ModulTyp[];
-  minGang: number;
+  tiefen: string[];
   geladen: boolean;
 
-  neuesProjekt: (markt: string) => string;
-  dupliziereProjekt: (id: string) => void;
-  loescheProjekt: (id: string) => void;
+  projektAnlegen: (markt: string) => string;
+  projektDuplizieren: (id: string) => void;
+  projektLoeschen: (id: string) => void;
   aendereProjekt: (id: string, fn: (p: Projekt) => Projekt) => void;
-  aendereFlaeche: (pid: string, fid: string, fn: (f: Stellflaeche) => Stellflaeche) => void;
-  /** Vorlage auf die Fläche anwenden bzw. neu berechnen */
-  wendeVorlageAn: (pid: string, fid: string, vorlageId: string) => string[];
-
+  aendereKasse: (pid: string, kid: string, fn: (k: Kasse) => Kasse) => void;
+  aenderePlatz: (pid: string, kid: string, plid: string, fn: (p: Platzierung) => Platzierung) => void;
   setWarengruppen: (w: Warengruppe[]) => void;
-  setModulTypen: (m: ModulTyp[]) => void;
-  setMinGang: (n: number) => void;
+  setTiefen: (t: string[]) => void;
 };
-
-export const heute = () => new Date().toISOString().slice(0, 10);
-
-export const neuerKassenplatz = (nummer: number): Kassenplatz => ({
-  id: uid(), nummer, tischLaenge: 0, tischBreite: 0, gangBreite: 0,
-});
-export const neueFlaeche = (name: string, kassenplatzId: string | null): Stellflaeche => ({
-  id: uid(), name, kassenplatzId, laenge: 0, maxHoehe: 0, maxTiefe: 0,
-  stoerstellen: [], vorlageId: null, module: [],
-});
-export const neueStoerstelle = (): Stoerstelle => ({
-  id: uid(), typ: 'saeule', position: 0, breite: 0, blockiert: true, notiz: '',
-});
-
-/** Positionen nach jeder Änderung an Maßen oder Modulen neu bestimmen */
-const neuAnordnen = (f: Stellflaeche): Stellflaeche => ({
-  ...f, module: anordnen(f.module, f.laenge, f.stoerstellen).module,
-});
 
 export const useStore = create<State>()(
   persist(
     (set, get) => ({
       projekte: [],
       warengruppen: WARENGRUPPEN,
-      modulTypen: MODULTYPEN,
-      minGang: 90,
+      tiefen: TIEFEN,
       geladen: false,
 
-      neuesProjekt: (markt) => {
-        const k = neuerKassenplatz(1);
-        const p: Projekt = {
-          id: uid(), markt, datum: heute(), notizen: '',
-          kassenplaetze: [k], stellflaechen: [neueFlaeche('Stellfläche Kasse 1', k.id)],
-        };
+      projektAnlegen: (markt) => {
+        const p = neuesProjekt(markt);
         set((s) => ({ projekte: [p, ...s.projekte] }));
         return p.id;
       },
-      dupliziereProjekt: (id) =>
+      projektDuplizieren: (id) =>
         set((s) => {
           const p = s.projekte.find((x) => x.id === id);
           if (!p) return s;
-          const kopie: Projekt = { ...JSON.parse(JSON.stringify(p)), id: uid(), markt: p.markt + ' (Kopie)' };
+          const kopie: Projekt = JSON.parse(JSON.stringify(p));
+          kopie.id = uid();
+          kopie.stammdaten.markt = `${p.stammdaten.markt} (Kopie)`;
           return { projekte: [kopie, ...s.projekte] };
         }),
-      loescheProjekt: (id) => set((s) => ({ projekte: s.projekte.filter((p) => p.id !== id) })),
-      aendereProjekt: (id, fn) =>
-        set((s) => ({ projekte: s.projekte.map((p) => (p.id === id ? fn(p) : p)) })),
-      aendereFlaeche: (pid, fid, fn) =>
-        get().aendereProjekt(pid, (p) => ({
-          ...p,
-          stellflaechen: p.stellflaechen.map((f) => (f.id === fid ? neuAnordnen(fn(f)) : f)),
+      projektLoeschen: (id) => set((s) => ({ projekte: s.projekte.filter((p) => p.id !== id) })),
+      aendereProjekt: (id, fn) => set((s) => ({ projekte: s.projekte.map((p) => (p.id === id ? fn(p) : p)) })),
+      aendereKasse: (pid, kid, fn) =>
+        get().aendereProjekt(pid, (p) => ({ ...p, kassen: p.kassen.map((k) => (k.id === kid ? fn(k) : k)) })),
+      aenderePlatz: (pid, kid, plid, fn) =>
+        get().aendereKasse(pid, kid, (k) => ({
+          ...k, platzierungen: k.platzierungen.map((x) => (x.id === plid ? fn(x) : x)),
         })),
-      wendeVorlageAn: (pid, fid, vorlageId) => {
-        const v = VORLAGEN.find((x) => x.id === vorlageId);
-        const f = get().projekte.find((p) => p.id === pid)?.stellflaechen.find((x) => x.id === fid);
-        if (!v || !f) return [];
-        const r = fitTemplate(v, f.laenge, f.stoerstellen, get().modulTypen);
-        get().aendereFlaeche(pid, fid, (x) => ({ ...x, vorlageId, module: r.module }));
-        return r.warnungen;
-      },
-
       setWarengruppen: (warengruppen) => set({ warengruppen }),
-      setModulTypen: (modulTypen) => set({ modulTypen }),
-      setMinGang: (minGang) => set({ minGang }),
+      setTiefen: (tiefen) => set({ tiefen }),
     }),
     {
-      name: 'kassenzonen-planer-v1',
+      name: 'kassenzonen-planer-v2',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: ({ projekte, warengruppen, modulTypen, minGang }) => ({
-        projekte, warengruppen, modulTypen, minGang,
-      }),
+      partialize: ({ projekte, warengruppen, tiefen }) => ({ projekte, warengruppen, tiefen }),
       onRehydrateStorage: () => () => useStore.setState({ geladen: true }),
     },
   ),
 );
+
+// ---- Bilder (Logo, Grundriss) liegen getrennt, damit die Projektdaten klein bleiben ----
+
+const SCHLUESSEL = 'kassenzonen-bild-';
+
+type BildState = {
+  bilder: Bilder;
+  speichern: (b: Bild) => Promise<string>;
+  laden: (id: string | null) => Promise<void>;
+};
+
+export const useBilder = create<BildState>((set, get) => ({
+  bilder: {},
+  speichern: async (b) => {
+    const id = uid();
+    set((s) => ({ bilder: { ...s.bilder, [id]: b } }));
+    await AsyncStorage.setItem(SCHLUESSEL + id, JSON.stringify(b));
+    return id;
+  },
+  laden: async (id) => {
+    if (!id || get().bilder[id]) return;
+    const roh = await AsyncStorage.getItem(SCHLUESSEL + id);
+    if (roh) set((s) => ({ bilder: { ...s.bilder, [id]: JSON.parse(roh) } }));
+  },
+}));
